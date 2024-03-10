@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ja">
+<link rel="stylesheet" href="css/style.css">
+
+<head>
+  <meta charset="utf-8">
+  <title>Chatアプリ</title>
+</head>
+
+<body>
+
+  <!-- コンテンツ表示画面 -->
+  <div class="card">
+    <div>name:<input type="text" id="uname"></div>
+    <div>email:<input type="email" id="mail"></div>
+    <div>comment:<br>
+      <textarea id="text" cols="30" rows="10"></textarea>
+      <button id="send">send</button>
+    </div>
+    <div id="output" style="overflow:auto; height: 450px; "></div>
+  </div>
+
+
+  <!-- 以下JavaScript領域 -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+
+  <!-- 以下Firebase -->
+  <script type="module">
+
+    // Import the functions you need from the SDKs you need
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+    import { getDatabase, ref, push, set, update, onChildChanged, onChildAdded, remove, onChildRemoved }
+      from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+    // TODO: Add SDKs for Firebase products that you want to use
+    // https://firebase.google.com/docs/web/setup#available-libraries
+
+
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const dbRef = ref(db, "chat");
+
+    $("#send").on("click", function () {
+      const msg = {
+        uname: $("#uname").val(),
+        mail: $("#mail").val(),
+        text: $("#text").val()
+      }
+      if (!msg.uname && !msg.mail && !msg.text) {
+        alert("フォームに入力してください")
+      }
+      else {
+        const newPostRef = push(dbRef) //ユニークキー生成
+        set(newPostRef, msg)
+        $("#uname").val("");
+        $("#mail").val("");
+        $("#text").val("");
+      }
+    })
+
+    onChildAdded(dbRef, function (data) {
+      const msg = data.val()
+      const key = data.key //削除・更新に必須
+      let h = '<div class="message" id="' + key + '" data-key="' + key + '">'
+      h += msg.uname
+      h += '<br>'
+      h += '<span contentEditable="true" class="message-text" id="' + key + '_update">' + msg.text + '</span>'
+      h += '<br>'
+      h += '<span class="remove" data-key="' + key + '">delete</span>'
+      h += '<span class="update" data-key="' + key + '">updata</span>'
+      h += '<br>'
+      h += '</div>'
+      $("#output").prepend(h)
+    })
+
+    // 削除イベント
+    $("#output").on("click", ".remove", function () {
+      const key = $(this).attr("data-key")
+      const remove_item = ref(db, "chat/" + key)
+      //削除関数
+      remove(remove_item)
+      }) 
+      
+    // 更新イベント
+    $("#output").on("click", ".update", function () {
+      const key = $(this).attr("data-key")
+      update(ref(db, "chat/" + key), {
+        text: $("#" + key + '_update').html()
+      })
+    })
+    // 削除処理がFirebaseで実行されたらイベント発生
+    onChildRemoved(dbRef, (data) => {
+      $("#" + data.key).remove() //対象を削除
+    })
+
+    // 更新処理がFirebaseで実行されたらイベント発生
+    onChildChanged(dbRef, (data) => {
+      $("#" + data.key + '_update').html(data.val().text)
+      $("#" + data.key + '_update').fadeOut(800).fadeIn(800)
+    })
+  </script>
+</body>
+
+</html>
